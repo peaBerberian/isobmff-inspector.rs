@@ -61,7 +61,12 @@ impl IsoBoxParser for Saio {
             values.push(("aux_info_type_parameter", BoxValue::from(val)));
         }
         values.push(("entry_count", BoxValue::from(self.entry_count)));
-        values.push(("offset", BoxValue::from(self.offset.as_slice())));
+        values.push(
+            ("entries", BoxValue::Collection(
+                    self.offset.iter().map(|sample| {
+                        vec![("offset", BoxValue::from(*sample))]
+                    }).collect()
+            )));
         values
     }
 
@@ -73,7 +78,7 @@ impl IsoBoxParser for Saio {
         "Sample Auxiliary Information Offsets Box"
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&Box<dyn IsoBoxEntry>>)>> {
+    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
         None
     }
 }

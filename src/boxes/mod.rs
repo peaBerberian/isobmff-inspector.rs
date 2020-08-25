@@ -25,11 +25,12 @@ mod trun;
 pub use box_types::{BoxInfo, BoxValue, Flags, IsoBoxEntry, IsoBoxParser};
 pub use box_reader::BoxReader;
 pub use error::BoxParsingError;
+pub use utils::IsoBoxData;
 
 use std::io::{BufRead, Seek};
 pub fn parse_iosbmff(
     reader: impl BufRead + Seek
-) -> Result<Vec<(BoxInfo, Option<Box<dyn IsoBoxEntry>>)>, BoxParsingError> {
+) -> Result<Vec<utils::IsoBoxData>, BoxParsingError> {
     let mut box_reader = BoxReader::create(reader);
     utils::parse_children(&mut box_reader, None)
 }

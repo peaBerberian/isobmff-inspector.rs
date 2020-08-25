@@ -48,7 +48,7 @@ impl IsoBoxParser for Tfdt {
         "Track fragment decode time"
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&Box<dyn IsoBoxEntry>>)>> {
+    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
         None
     }
 }

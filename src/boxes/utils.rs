@@ -26,10 +26,17 @@ use super::{
     trun,
 };
 
+/// Information on an ISOBMFF after parsing.
+/// This is a tuple of two values applying to a single box:
+///   1. General info about the box.
+///   2. The parsed box data, as an Option.
+///      `None` if we could not parse it (e.g. no parser were available).
+pub type IsoBoxData = (BoxInfo, Option<Box<dyn IsoBoxEntry>>);
+
 pub fn parse_children<T: BufRead + Seek>(
     reader: &mut BoxReader<T>,
     size_limit: Option<u32>
-) -> Result<Vec<(BoxInfo, Option<Box<dyn IsoBoxEntry>>)>, BoxParsingError> {
+) -> Result<Vec<IsoBoxData>, BoxParsingError> {
     let mut contents = vec![];
     let mut size_limit_remaining : Option<u32> = None;
     if let Some(limit) = size_limit {

@@ -22,7 +22,7 @@ impl IsoBoxParser for Ftyp {
         let mut remaining_size = size - 8;
         while !reader.is_empty()? && remaining_size > 0 {
             compatible_brands.push(reader.read_str(4)?);
-            remaining_size = remaining_size - 4;
+            remaining_size -= 4;
             // XXX TODO guard overflow?
             // check divisibility by 4?
         }
@@ -45,7 +45,7 @@ impl IsoBoxParser for Ftyp {
         "File Type Box"
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&Box<dyn IsoBoxEntry>>)>> {
+    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
         None
     }
 }

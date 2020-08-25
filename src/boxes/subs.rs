@@ -44,6 +44,7 @@ impl IsoBoxParser for Subs {
                     };
                 subsample_size.push(size);
             }
+            // XXX TODO Re-check
             let subsample_priority = reader.read_u8()?;
             let discardable = reader.read_u8()?;
             let codec_specific_parameters = reader.read_u32()?;
@@ -94,7 +95,7 @@ impl IsoBoxParser for Subs {
         "Sub-Sample Information Box"
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&Box<dyn IsoBoxEntry>>)>> {
+    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
         None
     }
 }

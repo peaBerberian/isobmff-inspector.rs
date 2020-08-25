@@ -28,11 +28,30 @@ impl Flags {
     pub fn has_flag(&self, flag: u32) -> bool {
         self.0 & flag > 0
     }
+
+    pub fn to_hex_string(&self) -> String {
+        use std::fmt::Write;
+        let mut s = String::new();
+        let to_slice: [u8; 3] = self.into();
+        write!(&mut s, "{:#04X}{:02X}{:02X}", to_slice[0], to_slice[1], to_slice[2])
+            .expect("Unable to write hex string for flags.");
+        s
+    }
 }
 
 impl From<Flags> for u32 {
     fn from(val: Flags) -> u32 {
         val.0
+    }
+}
+
+impl From<&Flags> for [u8; 3] {
+    fn from(val: &Flags) -> [u8; 3] {
+        [
+            ((val.0 >> 16) & 0xFF) as u8,
+            ((val.0 >> 8) & 0xFF) as u8,
+            ((val.0) & 0xFF) as u8
+        ]
     }
 }
 
@@ -165,6 +184,15 @@ impl<'a> From<Vec<Vec<(&'a str, BoxValue<'a>)>>> for BoxValue<'a> {
     }
 }
 
+/// Describes an ISOBMFF box contained in another box.
+/// This is a tuple of two values:
+///   1. The info about the box contained.
+///   2. The parsed box data, as an Option.
+///      `None` if we could not parse it (e.g. no parser were available).
+pub type ContainedBoxInfo<'a> = (
+    &'a BoxInfo,
+    Option<&'a dyn IsoBoxEntry>);
+
 /// Trait for implementing ISOBMFF box parsers.
 ///
 /// This is the trait you should implement on any new struct defining the parsing
@@ -190,7 +218,7 @@ pub trait IsoBoxParser {
 
     fn get_inner_values(&self) -> Vec<(&'static str, BoxValue)>;
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&Box<dyn IsoBoxEntry>>)>>;
+    fn get_contained_boxes(&self) -> Option<Vec<ContainedBoxInfo>>;
 }
 
 /// Trait for defining an ISOBMFF box.
@@ -214,7 +242,7 @@ pub trait IsoBoxEntry {
     /// Returns a long version of the box' name.
     fn get_long_name(&self) -> &'static str;
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&Box<dyn IsoBoxEntry>>)>>;
+    fn get_contained_boxes(&self) -> Option<Vec<ContainedBoxInfo>>;
 }
 
 impl<T: IsoBoxParser> IsoBoxEntry for T {
@@ -226,7 +254,7 @@ impl<T: IsoBoxParser> IsoBoxEntry for T {
     }
     fn get_inner_values(&self) -> Vec<(&'static str, BoxValue)> { self.get_inner_values() }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&Box<dyn IsoBoxEntry>>)>> {
+    fn get_contained_boxes(&self) -> Option<Vec<ContainedBoxInfo>> {
         self.get_contained_boxes()
     }
 }
@@ -245,7 +273,7 @@ pub trait IsobmffBox {
         vec![]
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(BoxInfo, Option<&Box<dyn IsoBoxEntry>>)>> {
+    fn get_contained_boxes(&self) -> Option<Vec<ContainedBoxInfo>> {
         None
     }
 }

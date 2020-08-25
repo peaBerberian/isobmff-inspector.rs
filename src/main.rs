@@ -18,6 +18,8 @@ fn main() {
         Err(e) => {
             eprintln!("Error: something went wrong when parsing the file: {:?}", e);
         },
-        Ok(data) => { render::render_result(data); }
+        Ok(data) => {
+            render::render_result(data);
+        }
     }
 }

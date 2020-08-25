@@ -68,8 +68,14 @@ impl IsoBoxParser for Saiz {
             ("default_sample_info_size", BoxValue::from(self.default_sample_info_size)));
         values.push(
             ("entry_count", BoxValue::from(self.entry_count)));
-        values.push(
-            ("sample_info_size", BoxValue::from(self.sample_info_size.as_slice())));
+        if !self.sample_info_size.is_empty() {
+            values.push(
+                ("entries", BoxValue::Collection(
+                        self.sample_info_size.iter().map(|sample|
+                            vec![("sample_info_size", BoxValue::UInt8(*sample))]
+                        ).collect()
+                )));
+        }
         values
     }
 
@@ -81,7 +87,7 @@ impl IsoBoxParser for Saiz {
         "Sample Auxiliary Information Sizes Box"
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&Box<dyn IsoBoxEntry>>)>> {
+    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
         None
     }
 }

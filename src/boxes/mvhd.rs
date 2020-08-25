@@ -19,7 +19,7 @@ pub struct Mvhd {
     rate: [u16; 2],
     volume: [u8; 2],
     reserved_1: u16,
-    reserved_2: [u8; 2],
+    reserved_2: [u32; 2],
     matrix: [u32; 9],
     pre_defined: [u32; 6],
     next_track_id: u32,
@@ -50,7 +50,7 @@ impl IsoBoxParser for Mvhd {
         let rate = [reader.read_u16()?, reader.read_u16()?];
         let volume = [reader.read_u8()?, reader.read_u8()?];
         let reserved_1 = reader.read_u16()?;
-        let reserved_2 = [reader.read_u8()?, reader.read_u8()?];
+        let reserved_2 = [reader.read_u32()?, reader.read_u32()?];
         let matrix = [
             reader.read_u32()?, reader.read_u32()?, reader.read_u32()?,
             reader.read_u32()?, reader.read_u32()?, reader.read_u32()?,
@@ -102,7 +102,7 @@ impl IsoBoxParser for Mvhd {
         "Movie Header Box"
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&Box<dyn IsoBoxEntry>>)>> {
+    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
         None
     }
 }

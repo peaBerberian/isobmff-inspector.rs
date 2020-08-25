@@ -19,8 +19,10 @@ impl<'a> IsoBoxParser for Moof {
         Ok(Self { content })
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&Box<dyn IsoBoxEntry>>)>> {
-        Some(self.content.iter().map(|c| (&c.0, c.1.as_ref())).collect())
+    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
+        Some(self.content.iter().map(|c|
+                (&c.0, c.1.as_ref().map(|boxed| { std::boxed::Box::as_ref(&boxed) }))
+        ).collect())
     }
 
     fn get_inner_values(&self) -> Vec<(&'static str, BoxValue)> {
