@@ -1,17 +1,27 @@
 use std::io::{BufRead, Seek};
+use std::rc::Rc;
 
 use super::error;
 use super::box_reader::BoxReader;
 
 #[derive(Debug)]
-pub struct BoxInfo {
+pub struct IsoBoxInfo {
+    /// Offset the box starts at, in the whole ISOBMFF file.
     pub offset: u64,
-    pub size: u32,
+    /// Size of the box.
+    pub size: u64,
+    /// Short name of the box, as indicated in the ISOBMFF file.
     pub short_name: String,
+    /// When the box is an `uuid` box, this is the defined extended name.
+    /// `None` when the box is not an `uuid` box.
+    pub user_type: Option<[u8; 16]>,
+
+    pub parent_box_info: Option<Rc<IsoBoxInfo>>,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct Flags(u32);
+
 impl Flags {
     pub fn new(data: [u8; 3]) -> Self {
         Self(
@@ -72,7 +82,7 @@ impl From<Flags> for [u8; 3] {
 /// `BoxValue` allows to classify them into a discrete number of types to be
 /// able to have a coherent way of signaling/displaying similar types in
 /// different boxes.
-pub enum BoxValue<'a> {
+pub enum BoxValue<'iso_box_entry> {
     // Simple, less or equal to 64 bit, Copy, integer types
     UInt8(u8),
     UInt16(u16),
@@ -82,28 +92,28 @@ pub enum BoxValue<'a> {
     Int64(i64),
     Flags(Flags),
 
-    // More complex types, linked to the struct lifetime
+    // Fixed point floats (no IEEE754 in ISOBMFF), still Copy
+    FixedPoint8([u8; 2]),
+    FixedPoint16([u16; 2]),
+    // FixedPoint32([u32; 2]),
+
+    // More complex types, linked to the corresponding IsoBoxEntry lifetime
 
     // Slices-based
-    UInt8Arr(&'a [u8]),
-    // UInt16Arr(&'a [u16]),
-    UInt32Arr(&'a [u32]),
-    UInt64Arr(&'a [u64]),
+    UInt8Arr(&'iso_box_entry [u8]),
+    // UInt16Arr(&'iso_box_entry [u16]),
+    UInt32Arr(&'iso_box_entry [u32]),
+    UInt64Arr(&'iso_box_entry [u64]),
 
     // Matrix
-    Matrix3_3(&'a [u32; 9]),
+    Matrix3_3(&'iso_box_entry [u32; 9]),
 
     // Strings
-    Utf8(&'a str),
-    Utf8Arr(&'a [String]),
-
-    // Fixed point floats (no IEEE754 in ISOBMFF)
-    FixedPoint8(&'a [u8; 2]),
-    FixedPoint16(&'a [u16; 2]),
-    // FixedPoint32(&'a [u32; 2]),
+    Utf8(&'iso_box_entry str),
+    Utf8Arr(&'iso_box_entry [String]),
 
     // Collection of multiple BoxValue elements put together, each named
-    Collection(Vec<Vec<(&'a str, BoxValue<'a>)>>),
+    Collection(Vec<Vec<(&'iso_box_entry str, BoxValue<'iso_box_entry>)>>),
 }
 
 impl<'a> From<u8> for BoxValue<'a> {
@@ -190,8 +200,15 @@ impl<'a> From<Vec<Vec<(&'a str, BoxValue<'a>)>>> for BoxValue<'a> {
 ///   2. The parsed box data, as an Option.
 ///      `None` if we could not parse it (e.g. no parser were available).
 pub type ContainedBoxInfo<'a> = (
-    &'a BoxInfo,
+    &'a IsoBoxInfo,
     Option<&'a dyn IsoBoxEntry>);
+
+/// Information on an ISOBMFF after parsing.
+/// This is a tuple of two values applying to a single box:
+///   1. General info about the box.
+///   2. The parsed box data, as an Option.
+///      `None` if we could not parse it (e.g. no parser were available).
+pub type IsoBoxData = (Rc<IsoBoxInfo>, Option<Box<dyn IsoBoxEntry>>);
 
 /// Trait for implementing ISOBMFF box parsers.
 ///
@@ -207,8 +224,11 @@ pub type ContainedBoxInfo<'a> = (
 /// can be used on more "exotic" case, e.g. when defining an enum of possibly
 /// contained boxes in an ISOBMFF box containing other boxes.
 pub trait IsoBoxParser {
-    fn parse<T: BufRead + Seek>(reader: &mut BoxReader<T>, box_size: u32)
-        -> Result<Self, error::BoxParsingError> where Self: Sized;
+    fn parse<T: BufRead + Seek>(
+        reader: &mut BoxReader<T>,
+        size_to_read: Option<u64>,
+        box_info: &Rc<IsoBoxInfo>
+    ) -> Result<Self, error::BoxParsingError> where Self: Sized;
 
     /// Returns the short 4-characters version of the box' name.
     fn get_short_name() -> &'static str where Self: Sized;
@@ -216,9 +236,13 @@ pub trait IsoBoxParser {
     /// Returns a long version of the box' name.
     fn get_long_name() -> &'static str where Self: Sized;
 
-    fn get_inner_values(&self) -> Vec<(&'static str, BoxValue)>;
+    fn get_inner_values_ref(&self) -> Vec<(&'static str, BoxValue)>;
 
-    fn get_contained_boxes(&self) -> Option<Vec<ContainedBoxInfo>>;
+    fn get_inner_boxes_ref(&self) -> Option<Vec<ContainedBoxInfo>>;
+
+    /// Consumes the IsoBoxEntry and return ownership of the inner parsed boxes.
+    /// `None` if that box is not a container box.
+    fn get_inner_boxes(self) -> Option<Vec<IsoBoxData>>;
 }
 
 /// Trait for defining an ISOBMFF box.
@@ -234,7 +258,7 @@ pub trait IsoBoxParser {
 /// For example, it can be implemented on an enum of multiple possible ISOBMFF
 /// boxes or on usized trait objects.
 pub trait IsoBoxEntry {
-    fn get_inner_values(&self) -> Vec<(&'static str, BoxValue)>;
+    fn get_inner_values_ref(&self) -> Vec<(&'static str, BoxValue)>;
 
     /// Returns the short 4-characters version of the box' name.
     fn get_short_name(&self) -> &'static str;
@@ -242,7 +266,11 @@ pub trait IsoBoxEntry {
     /// Returns a long version of the box' name.
     fn get_long_name(&self) -> &'static str;
 
-    fn get_contained_boxes(&self) -> Option<Vec<ContainedBoxInfo>>;
+    fn get_inner_boxes_ref(&self) -> Option<Vec<ContainedBoxInfo>>;
+
+    /// Consumes the IsoBoxEntry and return ownership of the inner parsed boxes.
+    /// `None` if that box is not a container box.
+    fn get_inner_boxes(self) -> Option<Vec<IsoBoxData>>;
 }
 
 impl<T: IsoBoxParser> IsoBoxEntry for T {
@@ -252,28 +280,13 @@ impl<T: IsoBoxParser> IsoBoxEntry for T {
     fn get_long_name(&self) -> &'static str {
         T::get_long_name()
     }
-    fn get_inner_values(&self) -> Vec<(&'static str, BoxValue)> { self.get_inner_values() }
+    fn get_inner_values_ref(&self) -> Vec<(&'static str, BoxValue)> { self.get_inner_values_ref() }
 
-    fn get_contained_boxes(&self) -> Option<Vec<ContainedBoxInfo>> {
-        self.get_contained_boxes()
-    }
-}
-
-pub trait IsobmffBox {
-    fn parse<T: BufRead + Seek>(reader: &mut BoxReader<T>)
-        -> Result<Self, error::BoxParsingError> where Self: Sized;
-
-    /// Returns the short 4-characters version of the box' name.
-    fn get_short_name() -> &'static str where Self: Sized;
-
-    /// Returns a long version of the box' name.
-    fn get_long_name() -> &'static str where Self: Sized;
-
-    fn get_inner_value(&self) -> Vec<(&'static str, BoxValue)> {
-        vec![]
+    fn get_inner_boxes_ref(&self) -> Option<Vec<ContainedBoxInfo>> {
+        self.get_inner_boxes_ref()
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<ContainedBoxInfo>> {
-        None
+    fn get_inner_boxes(self) -> Option<Vec<IsoBoxData>> {
+        self.get_inner_boxes()
     }
 }

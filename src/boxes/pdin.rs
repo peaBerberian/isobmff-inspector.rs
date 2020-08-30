@@ -1,6 +1,7 @@
 use std::io::BufRead;
+use std::rc::Rc;
 use super::{
-    BoxInfo,
+    IsoBoxInfo,
     BoxParsingError,
     BoxReader,
     BoxValue,
@@ -17,10 +18,18 @@ pub struct Pdin {
 }
 
 impl IsoBoxParser for Pdin {
-    fn parse<T: BufRead>(reader: &mut BoxReader<T>, _size: u32) -> Result<Self, BoxParsingError> {
+    fn parse<T: BufRead>(
+        reader: &mut BoxReader<T>,
+        _content_size: Option<u64>,
+        box_info: &Rc<IsoBoxInfo>
+    ) -> Result<Self, BoxParsingError> {
         let version = reader.read_u8()?;
         if version != 0 {
-            return Err(BoxParsingError::InvalidVersion { expected: vec![0], actual: version });
+            return Err(BoxParsingError::InvalidVersion {
+                expected: vec![0],
+                actual: version,
+                box_info: Rc::clone(box_info),
+            });
         }
         let flags = Flags::read(reader)?;
         let rate = reader.read_u32()?;
@@ -28,7 +37,7 @@ impl IsoBoxParser for Pdin {
         Ok(Self { version, flags, rate, delay })
     }
 
-    fn get_inner_values(&self) -> Vec<(&'static str, BoxValue)> {
+    fn get_inner_values_ref(&self) -> Vec<(&'static str, BoxValue)> {
         vec![
             ("version", BoxValue::from(self.version)),
             ("flags", BoxValue::from(self.flags)),
@@ -45,7 +54,11 @@ impl IsoBoxParser for Pdin {
         "Progressive Download Information Box"
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
+    fn get_inner_boxes(self) -> Option<Vec<super::IsoBoxData>> {
+        None
+    }
+
+    fn get_inner_boxes_ref(&self) -> Option<Vec<(&IsoBoxInfo, Option<&dyn IsoBoxEntry>)>> {
         None
     }
 }

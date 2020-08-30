@@ -59,13 +59,6 @@ impl<T : BufRead> BoxReader<T> {
         Ok(buffer[0])
     }
 
-//     /// Return the next N bytes as a slice of u8.
-//     pub fn read_bytes(&mut self, nb_bytes : usize) -> Result<Vec<u8>, std::io::Error> {
-//         let mut buffer = vec![0; nb_bytes];
-//         self.reader.read_exact(&mut buffer)?;
-//         Ok(buffer)
-//     }
-
     pub fn is_empty(&mut self) -> Result<bool, std::io::Error> {
         Ok(self.reader.fill_buf()?.is_empty())
     }
@@ -75,13 +68,34 @@ impl<T : BufRead> BoxReader<T> {
         self.reader.read_to_end(&mut buf)?;
         Ok(buf)
     }
+
+    pub fn skip_to_end(&mut self) -> Result<(), std::io::Error> {
+        loop {
+            let data_read = self.reader.fill_buf()?;
+            if data_read.is_empty() {
+                return Ok(());
+            }
+            let data_len = data_read.len();
+            self.reader.consume(data_len);
+        }
+    }
 }
 
 impl<T : BufRead + Seek> BoxReader<T> {
     pub fn skip_bytes(&mut self, nb_bytes: u64) -> Result<(), std::io::Error> {
+        if nb_bytes == 0 {
+            return Ok(());
+        }
+        // Ugly hack to ensure we did not go beyond EOF
+        let really_seeked_pos = nb_bytes - 1;
         let pos = self.get_pos()?;
-        self.reader.seek(std::io::SeekFrom::Start(pos + nb_bytes))?;
-        Ok(())
+        self.reader.seek(std::io::SeekFrom::Start(pos + really_seeked_pos))?;
+        if self.is_empty()? {
+            Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof))
+        } else {
+            self.read_u8()?;
+            Ok(())
+        }
     }
 
     pub fn get_pos(&mut self) -> Result<u64, std::io::Error> {

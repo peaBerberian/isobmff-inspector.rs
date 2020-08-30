@@ -1,6 +1,6 @@
 use std::io::{BufRead, Seek};
 use super::{
-    BoxInfo,
+    IsoBoxInfo,
     BoxParsingError,
     BoxReader,
     BoxValue,
@@ -10,12 +10,20 @@ use super::{
 
 pub struct Mdat {}
 impl IsoBoxParser for Mdat {
-    fn parse<T: BufRead + Seek>(reader: &mut BoxReader<T>, size: u32) -> Result<Self, BoxParsingError> {
-        reader.skip_bytes(size as u64)?;
+    fn parse<T: BufRead + Seek>(
+        reader: &mut BoxReader<T>,
+        content_size: Option<u64>,
+        _box_info: &std::rc::Rc<IsoBoxInfo>
+    ) -> Result<Self, BoxParsingError> {
+        if let Some(size_to_skip) = content_size {
+            reader.skip_bytes(size_to_skip)?;
+        } else {
+            reader.skip_to_end()?;
+        }
         Ok(Self {})
     }
 
-    fn get_inner_values(&self) -> Vec<(&'static str, BoxValue)> {
+    fn get_inner_values_ref(&self) -> Vec<(&'static str, BoxValue)> {
         vec![]
     }
 
@@ -27,7 +35,11 @@ impl IsoBoxParser for Mdat {
         "Media Data Box"
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
+    fn get_inner_boxes(self) -> Option<Vec<super::IsoBoxData>> {
+        None
+    }
+
+    fn get_inner_boxes_ref(&self) -> Option<Vec<(&IsoBoxInfo, Option<&dyn IsoBoxEntry>)>> {
         None
     }
 }

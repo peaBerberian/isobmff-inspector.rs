@@ -1,29 +1,15 @@
-use super::boxes::{ BoxInfo, BoxValue, IsoBoxData, IsoBoxEntry };
+use super::super::boxes::{
+    BoxValue,
+    IsoBoxEntry,
+    IsoBoxInfo,
+};
+use super::options::DisplayOptions;
 
-pub fn render_result(result: Vec<IsoBoxData>) {
-    let mut result_iter = result.iter();
-
-    // No line break on first iteration
-    if let Some(box_data) = result_iter.next() {
-        render_box_data(
-            &box_data.0,
-            box_data.1.as_ref().map(|boxed| std::boxed::Box::as_ref(&boxed)),
-            0);
-    }
-
-    for box_data in result_iter {
-        println!(); // line break for subsequent boxes
-        render_box_data(
-            &box_data.0,
-            box_data.1.as_ref().map(|boxed| std::boxed::Box::as_ref(&boxed)),
-            0);
-    }
-}
-
-fn render_box_data(
-    box_info: &BoxInfo,
+pub fn render_box_data(
+    box_info: &IsoBoxInfo,
     parsed_box: Option<&dyn IsoBoxEntry>,
-    indentation_level: usize
+    indentation_level: usize,
+    opts: &DisplayOptions
 ) {
     let padding = "\t".repeat(indentation_level);
     display_box_title(box_info, &padding);
@@ -32,31 +18,43 @@ fn render_box_data(
             println!("{}no data available yet on this box", padding);
         },
         Some(val) => {
-            for value in val.get_inner_values().iter() {
-                display_inner_value(value, &padding);
+            for value in val.get_inner_values_ref().iter() {
+                display_inner_value(value, &padding, opts);
             }
-            if let Some(contained) = val.get_contained_boxes() {
+            if let Some(contained) = val.get_inner_boxes_ref() {
                 for parsed in contained.iter() {
                     println!();
-                    render_box_data(parsed.0, parsed.1, indentation_level + 1);
+                    render_box_data(
+                        parsed.0,
+                        parsed.1,
+                        indentation_level + 1,
+                        opts);
                 }
             }
         }
     };
 }
 
-fn display_box_title(box_info: &BoxInfo, padding: &str) {
-    let BoxInfo { short_name, size, offset, .. } = box_info;
+fn display_box_title(box_info: &IsoBoxInfo, padding: &str) {
+    let IsoBoxInfo { short_name, size, offset, .. } = box_info;
     println!("{}\x1b[0;31m{}\x1b[0m (offset: {}, size: {})", padding, short_name, offset, size);
     println!("{}-------------------------------", padding);
 }
 
-fn display_inner_value(inner_value: &(&str, BoxValue), padding: &str) {
-    let value_to_string = stringify_box_value(&inner_value.1, &padding);
+fn display_inner_value(
+    inner_value: &(&str, BoxValue),
+    padding: &str,
+    opts: &DisplayOptions
+) {
+    let value_to_string = stringify_box_value(&inner_value.1, &padding, opts);
     println!("{}\x1b[0;32m{}:\x1b[0m {}", padding, inner_value.0, value_to_string);
 }
 
-fn stringify_box_value(value : &BoxValue, multi_line_padding : &str) -> String {
+fn stringify_box_value(
+    value: &BoxValue,
+    multi_line_padding: &str,
+    opts: &DisplayOptions
+) -> String {
     match value {
         BoxValue::UInt8(x) => x.to_string(),
         BoxValue::UInt16(x) => x.to_string(),
@@ -98,11 +96,17 @@ fn stringify_box_value(value : &BoxValue, multi_line_padding : &str) -> String {
 
         BoxValue::Collection(col) => {
             use std::fmt::Write;
+            if opts.hide_collections {
+                return "Collapsed collection of values".to_string();
+            }
             col.iter().map(|items| {
                 items.iter().map(|item| {
                     // XXX TODO
                     let mut s = String::new();
-                    let value_to_string = stringify_box_value(&item.1, &multi_line_padding);
+                    let value_to_string = stringify_box_value(
+                        &item.1,
+                        &multi_line_padding,
+                        opts);
                     write!(&mut s, "\n{}\t\x1b[0;32m{}:\x1b[0m {}", multi_line_padding, item.0, value_to_string).expect("Issue formatting Collection");
                     s
                 }).collect::<Vec<String>>().join("")

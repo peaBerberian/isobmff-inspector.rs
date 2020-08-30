@@ -1,6 +1,6 @@
 use std::io::BufRead;
 use super::{
-    BoxInfo,
+    IsoBoxInfo,
     BoxParsingError,
     BoxReader,
     BoxValue,
@@ -21,7 +21,11 @@ pub struct Tfhd {
 }
 
 impl IsoBoxParser for Tfhd {
-    fn parse<T: BufRead>(reader: &mut BoxReader<T>, _size: u32) -> Result<Self, BoxParsingError> {
+    fn parse<T: BufRead>(
+        reader: &mut BoxReader<T>,
+        _content_size: Option<u64>,
+        _box_info: &std::rc::Rc<IsoBoxInfo>
+    ) -> Result<Self, BoxParsingError> {
         let version = reader.read_u8()?;
         let flags = Flags::read(reader)?;
 
@@ -31,7 +35,7 @@ impl IsoBoxParser for Tfhd {
         let flag_default_sample_size = flags.has_flag(0x000010);
         let flag_default_sample_flags = flags.has_flag(0x000020);
 
-        // TODO indicate flags values in get_inner_values
+        // TODO indicate flags values in get_inner_values_ref
         // let flag_duration_is_empty = flags.has_flag(0x010000);
         // let flag_default_base_is_moof = flags.has_flag(0x020000);
 
@@ -63,7 +67,7 @@ impl IsoBoxParser for Tfhd {
         })
     }
 
-    fn get_inner_values(&self) -> Vec<(&'static str, BoxValue)> {
+    fn get_inner_values_ref(&self) -> Vec<(&'static str, BoxValue)> {
         let mut values = vec![
             ("version", BoxValue::from(self.version)),
             ("flags", BoxValue::from(self.flags)),
@@ -95,7 +99,11 @@ impl IsoBoxParser for Tfhd {
         "Track Fragment Header Box"
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
+    fn get_inner_boxes(self) -> Option<Vec<super::IsoBoxData>> {
+        None
+    }
+
+    fn get_inner_boxes_ref(&self) -> Option<Vec<(&IsoBoxInfo, Option<&dyn IsoBoxEntry>)>> {
         None
     }
 }

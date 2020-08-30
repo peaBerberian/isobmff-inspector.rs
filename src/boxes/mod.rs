@@ -22,15 +22,22 @@ mod tfhd;
 mod traf;
 mod trun;
 
-pub use box_types::{BoxInfo, BoxValue, Flags, IsoBoxEntry, IsoBoxParser};
+pub use box_types::{
+    BoxValue,
+    ContainedBoxInfo,
+    Flags,
+    IsoBoxData,
+    IsoBoxEntry,
+    IsoBoxInfo,
+    IsoBoxParser
+};
 pub use box_reader::BoxReader;
 pub use error::BoxParsingError;
-pub use utils::IsoBoxData;
 
 use std::io::{BufRead, Seek};
-pub fn parse_iosbmff(
+pub fn parse_isobmff(
     reader: impl BufRead + Seek
-) -> Result<Vec<utils::IsoBoxData>, BoxParsingError> {
+) -> Result<Vec<IsoBoxData>, BoxParsingError> {
     let mut box_reader = BoxReader::create(reader);
-    utils::parse_children(&mut box_reader, None)
+    utils::parse_children(&mut box_reader, None, None)
 }

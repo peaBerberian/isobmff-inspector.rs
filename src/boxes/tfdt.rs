@@ -1,6 +1,6 @@
 use std::io::BufRead;
 use super::{
-    BoxInfo,
+    IsoBoxInfo,
     BoxParsingError,
     BoxReader,
     BoxValue,
@@ -16,7 +16,11 @@ pub struct Tfdt {
 }
 
 impl IsoBoxParser for Tfdt {
-    fn parse<T: BufRead>(reader: &mut BoxReader<T>, _size: u32) -> Result<Self, BoxParsingError> {
+    fn parse<T: BufRead>(
+        reader: &mut BoxReader<T>,
+        _content_size: Option<u64>,
+        _box_info: &std::rc::Rc<IsoBoxInfo>
+    ) -> Result<Self, BoxParsingError> {
         let version = reader.read_u8()?;
         let flags = Flags::read(reader)?;
         let base_media_decode_time = if version == 1 {
@@ -32,7 +36,7 @@ impl IsoBoxParser for Tfdt {
         })
     }
 
-    fn get_inner_values(&self) -> Vec<(&'static str, BoxValue)> {
+    fn get_inner_values_ref(&self) -> Vec<(&'static str, BoxValue)> {
         vec![
             ("version", BoxValue::from(self.version)),
             ("flags", BoxValue::from(self.flags)),
@@ -48,7 +52,11 @@ impl IsoBoxParser for Tfdt {
         "Track fragment decode time"
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
+    fn get_inner_boxes(self) -> Option<Vec<super::IsoBoxData>> {
+        None
+    }
+
+    fn get_inner_boxes_ref(&self) -> Option<Vec<(&IsoBoxInfo, Option<&dyn IsoBoxEntry>)>> {
         None
     }
 }

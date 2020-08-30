@@ -1,6 +1,6 @@
 use std::io::{BufRead, Seek};
 use super::{
-    BoxInfo,
+    IsoBoxInfo,
     BoxParsingError,
     BoxReader,
     BoxValue,
@@ -16,8 +16,12 @@ pub struct Styp {
 }
 
 impl IsoBoxParser for Styp {
-    fn parse<T: BufRead + Seek>(reader: &mut BoxReader<T>, size: u32) -> Result<Self, BoxParsingError> {
-        let ftyp_equiv = Ftyp::parse(reader, size)?;
+    fn parse<T: BufRead + Seek>(
+        reader: &mut BoxReader<T>,
+        content_size: Option<u64>,
+        box_info: &std::rc::Rc<IsoBoxInfo>
+    ) -> Result<Self, BoxParsingError> {
+        let ftyp_equiv = Ftyp::parse(reader, content_size, box_info)?;
         Ok(Self {
             major_brand: ftyp_equiv.major_brand,
             minor_brand: ftyp_equiv.minor_brand,
@@ -25,7 +29,7 @@ impl IsoBoxParser for Styp {
         })
     }
 
-    fn get_inner_values(&self) -> Vec<(&'static str, BoxValue)> {
+    fn get_inner_values_ref(&self) -> Vec<(&'static str, BoxValue)> {
         vec![
             ("major_brand", BoxValue::from(self.major_brand.as_str())),
             ("minor_brand", BoxValue::from(self.minor_brand)),
@@ -41,7 +45,11 @@ impl IsoBoxParser for Styp {
         "Segment Type Box"
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
+    fn get_inner_boxes(self) -> Option<Vec<super::IsoBoxData>> {
+        None
+    }
+
+    fn get_inner_boxes_ref(&self) -> Option<Vec<(&IsoBoxInfo, Option<&dyn IsoBoxEntry>)>> {
         None
     }
 }

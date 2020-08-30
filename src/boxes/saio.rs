@@ -1,6 +1,6 @@
 use std::io::BufRead;
 use super::{
-    BoxInfo,
+    IsoBoxInfo,
     BoxParsingError,
     BoxReader,
     BoxValue,
@@ -19,7 +19,11 @@ pub struct Saio {
 }
 
 impl IsoBoxParser for Saio {
-    fn parse<T: BufRead>(reader: &mut BoxReader<T>, _size: u32) -> Result<Self, BoxParsingError> {
+    fn parse<T: BufRead>(
+        reader: &mut BoxReader<T>,
+        _content_size: Option<u64>,
+        _box_info: &std::rc::Rc<IsoBoxInfo>
+    ) -> Result<Self, BoxParsingError> {
         let version = reader.read_u8()?;
         let flags = Flags::read(reader)?;
         let (aux_info_type, aux_info_type_parameter) =
@@ -32,11 +36,10 @@ impl IsoBoxParser for Saio {
         let entry_count = reader.read_u32()?;
 
         let mut offset: Vec<u64> = Vec::with_capacity(entry_count as usize);
-        for _ in 0..entry_count {
-            // Hopeing that the compiler moves out the invariant!
-            offset.push(
-                if version == 0 { reader.read_u32()? as u64 }
-                else { reader.read_u64()? });
+        if version == 0 {
+            for _ in 0..entry_count { offset.push(reader.read_u32()? as u64); }
+        } else {
+            for _ in 0..entry_count { offset.push(reader.read_u64()?); }
         }
 
         Ok(Self {
@@ -49,7 +52,7 @@ impl IsoBoxParser for Saio {
         })
     }
 
-    fn get_inner_values(&self) -> Vec<(&'static str, BoxValue)> {
+    fn get_inner_values_ref(&self) -> Vec<(&'static str, BoxValue)> {
         let mut values = vec![
             ("version", BoxValue::from(self.version)),
             ("flags", BoxValue::from(self.flags)),
@@ -78,7 +81,11 @@ impl IsoBoxParser for Saio {
         "Sample Auxiliary Information Offsets Box"
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
+    fn get_inner_boxes(self) -> Option<Vec<super::IsoBoxData>> {
+        None
+    }
+
+    fn get_inner_boxes_ref(&self) -> Option<Vec<(&IsoBoxInfo, Option<&dyn IsoBoxEntry>)>> {
         None
     }
 }

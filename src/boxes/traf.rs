@@ -1,6 +1,7 @@
 use std::io::{BufRead, Seek};
+use std::rc::Rc;
 use super::{
-    BoxInfo,
+    IsoBoxInfo,
     BoxParsingError,
     BoxReader,
     BoxValue,
@@ -11,38 +12,30 @@ use super::{
 };
 
 pub struct Traf {
-    // tfhd: tfhd::Tfhd,
-    // tfhd: AtLeastOne
-    // trun: Vec<trun::Trun>,
-    // trun: ...
-    // tfdt: Option<tfdt::Tfdt>,
-    // tfdt: OneOrNone,
-    // sbgp: Vec<super::sbgp::Sbgp>,
-    // ...
-    // sgpd: Vec<super::sgpd::Sgpd>,
-    // ...
-    // subs: Vec<subs::Subs>,
-    // ...
-    // saiz: Vec<saiz::Saiz>,
-    // ...
-    // saio: Vec<saio::Saio>,
-    // ...
-    content: Vec<(BoxInfo, Option<Box<dyn IsoBoxEntry>>)>,
+    content: Vec<(Rc<IsoBoxInfo>, Option<Box<dyn IsoBoxEntry>>)>,
 }
 
 impl<'a> IsoBoxParser for Traf {
-    fn parse<T: BufRead + Seek>(reader: &mut BoxReader<T>, size: u32) -> Result<Self, BoxParsingError> {
-        let content = parse_children(reader, Some(size))?;
+    fn parse<T: BufRead + Seek>(
+        reader: &mut BoxReader<T>,
+        content_size: Option<u64>,
+        box_info: &std::rc::Rc<IsoBoxInfo>
+    ) -> Result<Self, BoxParsingError> {
+        let content = parse_children(reader, content_size, Some(box_info))?;
         Ok(Self { content })
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
+    fn get_inner_boxes(self) -> Option<Vec<super::IsoBoxData>> {
+        Some(self.content)
+    }
+
+    fn get_inner_boxes_ref(&self) -> Option<Vec<(&IsoBoxInfo, Option<&dyn IsoBoxEntry>)>> {
         Some(self.content.iter().map(|c|
-                (&c.0, c.1.as_ref().map(|boxed| { std::boxed::Box::as_ref(&boxed) }))
+                (c.0.as_ref(), c.1.as_ref().map(|boxed| { std::boxed::Box::as_ref(&boxed) }))
         ).collect())
     }
 
-    fn get_inner_values(&self) -> Vec<(&'static str, BoxValue)> {
+    fn get_inner_values_ref(&self) -> Vec<(&'static str, BoxValue)> {
         vec![]
     }
 

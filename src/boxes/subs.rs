@@ -1,6 +1,6 @@
 use std::io::BufRead;
 use super::{
-    BoxInfo,
+    IsoBoxInfo,
     BoxParsingError,
     BoxReader,
     BoxValue,
@@ -26,7 +26,11 @@ pub struct Subs {
 }
 
 impl IsoBoxParser for Subs {
-    fn parse<T: BufRead>(reader: &mut BoxReader<T>, _size: u32) -> Result<Self, BoxParsingError> {
+    fn parse<T: BufRead>(
+        reader: &mut BoxReader<T>,
+        _content_size: Option<u64>,
+        _box_info: &std::rc::Rc<IsoBoxInfo>
+    ) -> Result<Self, BoxParsingError> {
         let version = reader.read_u8()?;
         let flags = Flags::read(reader)?;
         let entry_count = reader.read_u32()?;
@@ -66,7 +70,7 @@ impl IsoBoxParser for Subs {
         })
     }
 
-    fn get_inner_values(&self) -> Vec<(&'static str, BoxValue)> {
+    fn get_inner_values_ref(&self) -> Vec<(&'static str, BoxValue)> {
         vec![
             ("version", BoxValue::from(self.version)),
             ("flags", BoxValue::from(self.flags)),
@@ -95,7 +99,11 @@ impl IsoBoxParser for Subs {
         "Sub-Sample Information Box"
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
+    fn get_inner_boxes(self) -> Option<Vec<super::IsoBoxData>> {
+        None
+    }
+
+    fn get_inner_boxes_ref(&self) -> Option<Vec<(&IsoBoxInfo, Option<&dyn IsoBoxEntry>)>> {
         None
     }
 }

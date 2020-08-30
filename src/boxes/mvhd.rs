@@ -1,6 +1,7 @@
 use std::io::BufRead;
+use std::rc::Rc;
 use super::{
-    BoxInfo,
+    IsoBoxInfo,
     BoxParsingError,
     BoxReader,
     BoxValue,
@@ -26,8 +27,11 @@ pub struct Mvhd {
 }
 
 impl IsoBoxParser for Mvhd {
-    fn parse<T: BufRead>(reader: &mut BoxReader<T>, _size: u32) -> Result<Self, BoxParsingError>
-    where Self: Sized {
+    fn parse<T: BufRead>(
+        reader: &mut BoxReader<T>,
+        _content_size: Option<u64>,
+        box_info: &Rc<IsoBoxInfo>
+    ) -> Result<Self, BoxParsingError> {
         let version = reader.read_u8()?;
         let flags = Flags::read(reader)?;
         let (creation_time, modification_time, timescale, duration) = match version {
@@ -42,8 +46,10 @@ impl IsoBoxParser for Mvhd {
                 reader.read_u32()?,
                 reader.read_u64()?),
             v => {
-                return Err(BoxParsingError::InvalidVersion { expected: vec![0, 1],
-                                                             actual: v });
+                return Err(BoxParsingError::InvalidVersion {
+                    box_info: Rc::clone(box_info),
+                    expected: vec![0, 1],
+                    actual: v });
             }
         };
 
@@ -76,7 +82,7 @@ impl IsoBoxParser for Mvhd {
         })
     }
 
-    fn get_inner_values(&self) -> Vec<(&'static str, BoxValue)> {
+    fn get_inner_values_ref(&self) -> Vec<(&'static str, BoxValue)> {
         vec![
             ("version", BoxValue::from(self.version)),
             ("flags", BoxValue::from(self.flags)),
@@ -84,8 +90,8 @@ impl IsoBoxParser for Mvhd {
             ("modification_time", BoxValue::from(self.modification_time)),
             ("timescale", BoxValue::from(self.timescale)),
             ("duration", BoxValue::from(self.duration)),
-            ("rate", BoxValue::FixedPoint16(&self.rate)),
-            ("volume", BoxValue::FixedPoint8(&self.volume)),
+            ("rate", BoxValue::FixedPoint16(self.rate)),
+            ("volume", BoxValue::FixedPoint8(self.volume)),
             ("reserved_1", BoxValue::from(self.reserved_1)),
             ("reserved_2", BoxValue::from(self.reserved_2.as_ref())),
             ("matrix", BoxValue::Matrix3_3(&self.matrix)),
@@ -102,7 +108,11 @@ impl IsoBoxParser for Mvhd {
         "Movie Header Box"
     }
 
-    fn get_contained_boxes(&self) -> Option<Vec<(&BoxInfo, Option<&dyn IsoBoxEntry>)>> {
+    fn get_inner_boxes(self) -> Option<Vec<super::IsoBoxData>> {
+        None
+    }
+
+    fn get_inner_boxes_ref(&self) -> Option<Vec<(&IsoBoxInfo, Option<&dyn IsoBoxEntry>)>> {
         None
     }
 }
