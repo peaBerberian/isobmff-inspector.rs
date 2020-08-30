@@ -20,6 +20,7 @@ use super::{
     pdin,
     saio,
     saiz,
+    sidx,
     styp,
     subs,
     tfdt,
@@ -149,6 +150,8 @@ pub fn parse_children<T: BufRead + Seek>(
                 Some(Box::new(saio::Saio::parse(reader, box_remaining_size, &box_info)?)),
             "saiz" =>
                 Some(Box::new(saiz::Saiz::parse(reader, box_remaining_size, &box_info)?)),
+            "sidx" =>
+                Some(Box::new(sidx::Sidx::parse(reader, box_remaining_size, &box_info)?)),
             "styp" =>
                 Some(Box::new(styp::Styp::parse(reader, box_remaining_size, &box_info)?)),
             "subs" =>

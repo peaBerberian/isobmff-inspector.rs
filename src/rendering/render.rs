@@ -63,6 +63,7 @@ fn stringify_box_value(
         BoxValue::Int32(x) => x.to_string(),
         BoxValue::Int64(x) => x.to_string(),
         BoxValue::Flags(flags) => flags.to_hex_string(),
+        BoxValue::Bool(val) => val.to_string(),
 
         BoxValue::UInt8Arr(arr) =>
             arr.iter().map(|x| x.to_string()).collect::<Vec<String>>().join(", "),

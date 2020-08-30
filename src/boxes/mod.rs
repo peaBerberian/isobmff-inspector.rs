@@ -15,6 +15,7 @@ mod mvhd;
 mod pdin;
 mod saio;
 mod saiz;
+mod sidx;
 mod styp;
 mod subs;
 mod tfdt;

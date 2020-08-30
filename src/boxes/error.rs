@@ -1,15 +1,36 @@
+use thiserror::Error;
+
 use std::rc::Rc;
 use super::IsoBoxInfo;
 
-#[derive(Debug)]
+fn display_expected_version_string(expected: &[u8]) -> String {
+    match expected.len() {
+        0 => "no version".to_string(),
+        1 => "version ".to_string() + &expected[0].to_string(),
+        _ => ["one of ".to_string(), expected
+            .iter()
+            .map(|u| u.to_string())
+            .collect::<Vec<String>>()
+            .join(", ")
+        ].join("")
+    }
+}
+
+#[derive(Error, Debug)]
 pub enum BoxParsingError {
     /// Error related to standard IO (e.g. file opening)
-    IOError(std::io::Error),
+    #[error("{0}")]
+    IOError(#[from] std::io::Error),
 
     /// Error related to string conversion
-    UTF8Error(std::string::FromUtf8Error),
+    #[error("error when parsing a string: {0}")]
+    UTF8Error(#[from] std::string::FromUtf8Error),
 
     /// The version of the box is not handled.
+    #[error(
+            "invalid version: expected {}, found {}",
+            display_expected_version_string(&.expected),
+            .actual)]
     InvalidVersion {
         /// The box in which the error happened
         box_info: Rc<IsoBoxInfo>,
@@ -21,6 +42,7 @@ pub enum BoxParsingError {
 
     /// The size for the current box is too small to be properly
     /// parsed.
+    #[error("data store discaonnected")]
     BoxTooSmall {
         /// The "short" name of the box (the name on 4 ASCII characters)
         /// `None` if the name of the box cannot even be parsed.
@@ -41,6 +63,7 @@ pub enum BoxParsingError {
 
     /// The box size for the current box is too large when compared to its
     /// container.
+    #[error("data store dbisconnected")]
     BoxTooLarge {
         /// The box in which the error happened
         box_info: Rc<IsoBoxInfo>,
@@ -56,6 +79,7 @@ pub enum BoxParsingError {
     /// to the size of the box it had to parse.
     /// This usually means that the box given was too small.
     /// TODO Merge with BoxTooSmall?
+    #[error("data store dcisconnected")]
     ParserReadTooMuch {
         /// The box in which the error happened
         box_info: Rc<IsoBoxInfo>,
@@ -69,6 +93,7 @@ pub enum BoxParsingError {
     /// to the size of the box it had to parse.
     /// This usually means that the box given was too big.
     /// TODO Merge with BoxTooLarge?
+    #[error("data store ddisconnected")]
     ParserReadNotEnough {
         /// The box in which the error happened
         box_info: Rc<IsoBoxInfo>,
@@ -76,18 +101,6 @@ pub enum BoxParsingError {
         expected: u64,
         /// The actual number of bytes parsed by that parser
         actual: u64
-    }
-}
-
-impl From<std::io::Error> for BoxParsingError {
-    fn from(err : std::io::Error) -> BoxParsingError {
-        BoxParsingError::IOError(err)
-    }
-}
-
-impl From<std::string::FromUtf8Error> for BoxParsingError {
-    fn from(err : std::string::FromUtf8Error) -> BoxParsingError {
-        BoxParsingError::UTF8Error(err)
     }
 }
 

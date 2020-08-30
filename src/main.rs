@@ -74,7 +74,7 @@ fn main() {
     let result = parse_isobmff(rdr);
     match result {
         Err(e) => {
-            eprintln!("Error: something went wrong when parsing the file: {:?}", e);
+            eprintln!("Error: something went wrong when parsing the file: {}", e);
         },
         Ok(data) => {
             render_result(data, DisplayOptions {

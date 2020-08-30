@@ -91,6 +91,7 @@ pub enum BoxValue<'iso_box_entry> {
     Int32(i32),
     Int64(i64),
     Flags(Flags),
+    Bool(bool),
 
     // Fixed point floats (no IEEE754 in ISOBMFF), still Copy
     FixedPoint8([u8; 2]),
@@ -155,6 +156,12 @@ impl<'a> From<i64> for BoxValue<'a> {
 impl<'a> From<Flags> for BoxValue<'a> {
     fn from(val: Flags) -> Self {
         BoxValue::Flags(val)
+    }
+}
+
+impl<'a> From<bool> for BoxValue<'a> {
+    fn from(val: bool) -> Self {
+        BoxValue::Bool(val)
     }
 }
 
